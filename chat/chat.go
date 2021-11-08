@@ -54,6 +54,12 @@ func Run(flags Flags) error {
 		return err
 	}
 
+	state, err = initChat(flags.Out, state)
+
+	if err != nil {
+		return err
+	}
+
 	errs := make(chan error)
 	inputs := make(chan input)
 
@@ -107,12 +113,6 @@ func Run(flags Flags) error {
 			errs <- err
 		}
 	}()
-
-	state, err = initChat(flags.Out, state)
-
-	if err != nil {
-		return err
-	}
 
 	for {
 		select {
