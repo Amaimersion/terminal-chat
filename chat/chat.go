@@ -48,15 +48,12 @@ func Run(flags Flags) error {
 		},
 		port: 0,
 	}
-	state.port, err = parsePort(flags.Port)
 
-	if err != nil {
+	if state.port, err = parsePort(flags.Port); err != nil {
 		return err
 	}
 
-	state, err = initChat(flags.Out, state)
-
-	if err != nil {
+	if state, err = initChat(flags.Out, state); err != nil {
 		return err
 	}
 
@@ -74,15 +71,11 @@ func Run(flags Flags) error {
 				return nil
 			}
 
-			state, err = handleInput(flags.Out, state, in)
-
-			if err != nil {
+			if state, err = handleInput(flags.Out, state, in); err != nil {
 				return err
 			}
 		case req := <-requests:
-			state, err = handleRequest(flags.Out, state, req)
-
-			if err != nil {
+			if state, err = handleRequest(flags.Out, state, req); err != nil {
 				return err
 			}
 		}
