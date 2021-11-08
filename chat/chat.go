@@ -60,63 +60,14 @@ func Run(flags Flags) error {
 		return err
 	}
 
-	errs := make(chan error)
-	inputs := make(chan input)
-
-	// If chAreOpen is true, don't send anything to channels,
-	// because they are already closed at this moment.
-	// We use such logic because we can't gracefully end
-	// goroutines from outside.
-	chAreOpen := true
-
-	defer func() {
-		chAreOpen = false
-	}()
-	defer close(errs)
-	defer close(inputs)
-
-	go func() {
-		var h network.Handler = func(req network.Request) {
-			state, err = handleRequest(flags.Out, state, req)
-
-			if !chAreOpen {
-				return
-			}
-
-			if err != nil {
-				errs <- err
-			}
-		}
-
-		network.HandleAll(h)
-
-		addr := flags.Address + ":" + flags.Port
-		err = network.ListenAndServe(addr)
-
-		if !chAreOpen {
-			return
-		}
-
-		if err != nil {
-			errs <- err
-		}
-	}()
-
-	go func() {
-		err = readInput(flags.In, inputs)
-
-		if !chAreOpen {
-			return
-		}
-
-		if err != nil {
-			errs <- err
-		}
-	}()
+	inputs, inErrs := listenInputs(flags.In)
+	requests, reqErrs := listenRequests(flags.Address, flags.Port)
 
 	for {
 		select {
-		case err = <-errs:
+		case err = <-inErrs:
+			return err
+		case err = <-reqErrs:
 			return err
 		case in := <-inputs:
 			if in.command == commandExit {
@@ -124,6 +75,12 @@ func Run(flags Flags) error {
 			}
 
 			state, err = handleInput(flags.Out, state, in)
+
+			if err != nil {
+				return err
+			}
+		case req := <-requests:
+			state, err = handleRequest(flags.Out, state, req)
 
 			if err != nil {
 				return err
@@ -168,6 +125,47 @@ func initChat(w io.Writer, state chatState) (chatState, error) {
 	)
 
 	return state, err
+}
+
+func listenInputs(r io.Reader) (<-chan input, <-chan error) {
+	inputs := make(chan input)
+	errs := make(chan error, 1)
+
+	go func() {
+		defer close(inputs)
+		defer close(errs)
+
+		err := readInput(r, inputs)
+
+		if err != nil {
+			errs <- err
+		}
+	}()
+
+	return inputs, errs
+}
+
+func listenRequests(ip, port string) (<-chan network.Request, <-chan error) {
+	requests := make(chan network.Request)
+	errs := make(chan error, 1)
+
+	network.HandleAll(func(req network.Request) {
+		requests <- req
+	})
+
+	go func() {
+		defer close(requests)
+		defer close(errs)
+
+		addr := ip + ":" + port
+		err := network.ListenAndServe(addr)
+
+		if err != nil {
+			errs <- err
+		}
+	}()
+
+	return requests, errs
 }
 
 func handleInput(w io.Writer, st chatState, in input) (chatState, error) {
