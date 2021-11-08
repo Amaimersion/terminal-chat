@@ -61,9 +61,7 @@ func Marshal(data Packet) ([]byte, error) {
 	packet[3] <<= 4
 	packet[3] |= data.DestinationPort
 
-	for i, value := range payload {
-		packet[fixedHeaderLength+i] = value
-	}
+	copy(packet[fixedHeaderLength:], payload)
 
 	return packet, nil
 }
