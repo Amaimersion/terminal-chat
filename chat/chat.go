@@ -73,7 +73,11 @@ func Run(flags Flags) error {
 		var h network.Handler = func(req network.Request) {
 			state, err = handleRequest(flags.Out, state, req)
 
-			if err != nil && chAreOpen {
+			if !chAreOpen {
+				return
+			}
+
+			if err != nil {
 				errs <- err
 			}
 		}
@@ -83,7 +87,11 @@ func Run(flags Flags) error {
 		addr := flags.Address + ":" + flags.Port
 		err = network.ListenAndServe(addr)
 
-		if err != nil && chAreOpen {
+		if !chAreOpen {
+			return
+		}
+
+		if err != nil {
 			errs <- err
 		}
 	}()
@@ -91,7 +99,11 @@ func Run(flags Flags) error {
 	go func() {
 		err = readInput(flags.In, inputs)
 
-		if err != nil && chAreOpen {
+		if !chAreOpen {
+			return
+		}
+
+		if err != nil {
 			errs <- err
 		}
 	}()
